@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini AI Chat</title>
+    <style>
+        /* General Styling */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        /* Chat Container */
+        .chat-container {
+            width: 400px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Chat Window */
+        .chat-window {
+            height: 500px;
+            padding: 20px;
+            overflow-y: auto;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Message Bubbles */
+        .message {
+            max-width: 80%;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            align-self: flex-end;
+        }
+
+        .ai-message {
+            background-color: #eaeaea;
+            color: black;
+            align-self: flex-start;
+        }
+
+        /* Input Section */
+        .input-section {
+            display: flex;
+            padding: 10px;
+            gap: 10px;
+            align-items: center;
+            background-color: #f9f9f9;
+        }
+
+        .input-section input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .input-section button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .input-section button:hover {
+            background-color: #0056b3;
+        }
+
+        .input-section label {
+            cursor: pointer;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <!-- Chat Window -->
+        <div class="chat-window" id="chat-window"></div>
+
+        <!-- Input Section -->
+        <div class="input-section">
+            <input type="text" id="query-content" placeholder="Type your message...">
+            <label for="image-upload" style="color: #007bff;">📷</label>
+            <input type="file" id="image-upload" style="display: none;" accept="image/*" onchange="handleImageUpload(event)">
+            <button onclick="sendQuery()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        async function sendQuery() {
+            const queryContent = document.getElementById("query-content").value;
+            if (!queryContent) return;
+
+            addMessageToChat("user", queryContent);
+
+            // Prepare the query for the backend
+            const responseType = "text";  // Assuming text-based response for now
+            const responseDiv = document.getElementById("chat-window");
+
+            try {
+                const response = await fetch('/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ response_type: responseType, query_content: queryContent })
+                });
+
+                const data = await response.json();
+                addMessageToChat("ai", data.response);
+            } catch (error) {
+                addMessageToChat("ai", 'Error: ' + error);
+            }
+
+            document.getElementById("query-content").value = ""; // Clear input
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                addMessageToChat("user", "📷 Image Uploaded");
+
+                // Prepare image for sending to the backend
+                const formData = new FormData();
+                formData.append("image", file);
+
+                fetch('/query-image', {  // Assuming a separate endpoint for image queries
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.response_type === "image") {
+                        addMessageToChat("ai", `<img src="${data.response}" alt="Generated Image" style="max-width: 100%; border-radius: 8px;">`);
+                    } else {
+                        addMessageToChat("ai", data.response);
+                    }
+                })
+                .catch(error => {
+                    addMessageToChat("ai", 'Error: ' + error);
+                });
+            }
+        }
+
+        function addMessageToChat(sender, message) {
+            const chatWindow = document.getElementById("chat-window");
+            const messageDiv = document.createElement("div");
+            messageDiv.classList.add("message", sender === "user" ? "user-message" : "ai-message");
+
+            if (message.startsWith("<img")) {
+                messageDiv.innerHTML = message;
+            } else {
+                messageDiv.textContent = message;
+            }
+
+            chatWindow.appendChild(messageDiv);
+            chatWindow.scrollTop = chatWindow.scrollHeight; // Scroll to the bottom
+        }
+    </script>
+</body>
+</html>
